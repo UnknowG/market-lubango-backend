@@ -117,3 +117,31 @@ def get_pending_sellers(request):
     pending_sellers = User.objects.filter(user_types="seller", is_approved_seller=False)
     serializer = UserSerializer(pending_sellers, many=True)
     return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def approve_seller(request, user_id):
+    # Only admins can access this view
+    if request.user.user_type != "admin":
+        return Response(
+            {"error": "Permission denied"},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        seller = User.objects.get(id=user_id, user_type='seller')
+        seller.is_approved_seller = True
+        seller.save()
+
+        # Activate the store if it exists
+        if hasattr(seller, "store"):
+            seller.store.is_active = True
+            seller.store.save()
+        
+        return Response({"message": "Seller approved successfully"})
+    except User.DoesNotExist:
+        return Response(
+            {"error": "Seller not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
