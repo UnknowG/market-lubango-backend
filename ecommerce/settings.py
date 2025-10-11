@@ -49,13 +49,10 @@ LOCAL_APPS = [
     "apps.accounts",
 ]
 
-INSTALLED_APPS = [
-    DJANGO_APPS,
-    THIRDS_APPs,
-    LOCAL_APPS
-]
+INSTALLED_APPS = DJANGO_APPS + THIRDS_APPs + LOCAL_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -137,3 +134,22 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Custom user model
+
+AUTH_USER_MODEL = "accounts.CustomUser"
+
+# REST Framework Config
+
+from datetime import timedelta
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+}
