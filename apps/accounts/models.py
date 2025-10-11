@@ -21,10 +21,6 @@ class CustomUser(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        self.username = self.email
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return self.email
 

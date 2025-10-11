@@ -9,7 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "first_name", "last_name", "email", "user_type", "avatar_url", "birth_date", "phone"
+            "id", "username" ,"first_name", "last_name", "email", "user_type", "avatar_url", "birth_date", "phone"
         ]
 
 
@@ -20,7 +20,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "first_name", "last_name", "email", "password", "confirm_password", "user_type", "birth_date", "phone"
+            "username", "first_name", "last_name", "email", "password", "confirm_password", "user_type", "birth_date", "phone"
         ]
     
     def validate(self, attrs):
