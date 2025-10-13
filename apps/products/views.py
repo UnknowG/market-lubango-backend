@@ -2,8 +2,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from .models import Product
-from .serializers import ProductDetailSerializer, ProductListSerializer
+from .models import Category, Product
+from .serializers import CategoryListSerializer, ProductDetailSerializer, ProductListSerializer
 
 
 @api_view(["GET"])
@@ -32,3 +32,11 @@ def product_detail(request, slug):
             {"error": "Product not found"},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def category_list(request):
+    categories = Category.objects.all()
+    serializer = CategoryListSerializer(categories, many=True)
+    return Response(serializer.data)
