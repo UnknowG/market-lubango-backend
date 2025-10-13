@@ -133,3 +133,19 @@ def product_search(request):
 
     serializer = ProductListSerializer(product, many=True)
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def store_products(request, slug):
+    try:
+        from accounts.models import Store
+        store = Store.objects.get(slug=slug, is_active=True)
+        products = Product.objects.filter(store=store)
+        serializer = ProductListSerializer(products, many=True)
+        return Response(serializer.data)
+    except Store.DoesNotExist:
+        return Response(
+            {"error": "Store not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
