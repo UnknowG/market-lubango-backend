@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.db.models import Q
 from .models import Category, Product
 from .serializers import CategoryDetailSerializer, CategoryListSerializer, ProductCreateSerializer, ProductDetailSerializer, ProductListSerializer
 
@@ -112,3 +113,23 @@ def manage_product(request, slug):
             {"error": "Product not found."},
             status=status.HTTP_404_NOT_FOUND
         )
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def product_search(request):
+    query = request.query_params.get("query")
+    if not query:
+        return Response(
+            {"error": "No query provided."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    product = Product.objects.filter(
+        Q(name__icontains=query) |
+        Q(description__icontains=query) |
+        Q(category__name__icontains=query),
+        store__is_active=True
+    )
+
+    serializer = ProductListSerializer(product, many=True)
+    return Response(serializer.data)
