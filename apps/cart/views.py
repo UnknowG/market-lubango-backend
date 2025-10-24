@@ -43,3 +43,10 @@ def add_to_cart(request, cart_code):
             {"error": "Produto não encontrado ou fora de estoque."},
             status=status.HTTP_404_NOT_FOUND
         )
+    
+    # Verificar se tem producto suficiente em estoque
+    if product.stock_quantity < quantity:
+        return Response(
+            {"error": f"Quantidade solicitada excede o estoque disponível. Apenas {product.stock_quantity} disponível."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
