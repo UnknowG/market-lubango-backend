@@ -4,7 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from .models import Cart, CartItem
 from products.models import Product
-from .serializers import CartSerializer
+from .serializers import CartItemSerializer, CartSerializer
 
 
 @api_view(["GET"])
@@ -69,3 +69,33 @@ def add_to_cart(request, cart_code):
 
     serializer = CartSerializer(cart)
     return Response(serializer.data)
+
+
+@api_view(["PUT"])
+def update_cartitem_quantity(request):
+    cartitem_id = request.data.get("item_id")
+    quantity = request.data.get("quantity")
+
+    try:
+        cartitem = CartItem.objects.get(id=cartitem_id)
+        product = cartitem.product
+
+        # Verificar se a nova quantidade excede o estoque
+        if product.stock_quantity < quantity:
+            return Response(
+                {"error": f"Quantidade solicitada excede o estoque disponível. Apenas {product.stock_quantity} disponível."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        cartitem.quantity = quantity
+        cartitem.save()
+
+        serializer = CartItemSerializer(cartitem)
+        return Response(
+            {"data": serializer.data, "message": "Item no carrinho atualizado com sucesso!"}
+        )
+    except CartItem.DoesNotExist:
+        return Response(
+            {"error": "Item não encontrado no carrinho."},
+            status=status.HTTP_404_NOT_FOUND
+        )
