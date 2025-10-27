@@ -99,3 +99,16 @@ def update_cartitem_quantity(request):
             {"error": "Item não encontrado no carrinho."},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(["DELETE"])
+def delete_cartitem(request, pk):
+    try:
+        cartitem = CartItem.objects.get(id=pk)
+        cartitem.delete()
+        return Response("Item do carrinho deletado com sucesso.", status=status.HTTP_204_NO_CONTENT)
+    except CartItem.DoesNotExist:
+        return Response(
+            {"error": "Item não encontrado no carrinho."},
+            status=status.HTTP_404_NOT_FOUND
+        )
