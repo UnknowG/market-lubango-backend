@@ -138,3 +138,37 @@ def get_user_cart(request):
         return Response(serializer.data)
     except Cart.DoesNotExist:
         return Response({"error": "Carrinho não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def merge_carts(request):
+    try:
+        user_cart, created = Cart.objects.get_or_create(user=request.user)
+        if created:
+            import random
+            import string
+            user_cart.cart_code = "".join(random.choices(string.ascii_letters + string.digits, k=11))
+            user_cart.save()
+        
+        temp_cart_code = request.data.get("temp_cart_code")
+        if temp_cart_code:
+            try: 
+                temp_cart = Cart.objects.get(cart_code=temp_cart_code)
+                for item in temp_cart.cartitems.all():
+                    if not item.product.in_stock or item.product.stock_quantity < item.quantity:
+                        continue # Skip out of stock items
+
+                    CartItem.objects.update_or_create(
+                        cart=user_cart,
+                        product=item.product,
+                        defaults={"quantity": item.quantity}
+                    )
+                temp_cart.delete()
+            except Cart.DoesNotExist:
+                pass
+        
+        serializer = CartSerializer(user_cart)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
