@@ -24,3 +24,10 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ["id", "payment_method", "payment_status", "transaction_id", "amount", "reference_number", "created_at", "updated_at"]
+
+
+class CreateOrderSerializer(serializers.Serializer):
+    cart_code = serializers.CharField()
+    shipping_address = serializers.CharField()
+    payment_method = serializers.ChoiceField(choices=Payment.PAYMENT_METHOD_CHOICES)
+    reference_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
