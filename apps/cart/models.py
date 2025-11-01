@@ -4,7 +4,7 @@ from django.conf import settings
 
 class Cart(models.Model):
     user = models.ForeignKey(
-        settings.AUTH_MODEL_USER,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="carts",
         blank=True,
