@@ -17,7 +17,7 @@ def create_order(request):
     serializer = CreateOrderSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     cart_code = serializer.validated_data["cart_code"]
     shipping_address = serializer.validated_data["shipping_address"]
     payment_method = serializer.validated_data["payment_method"]
@@ -30,21 +30,19 @@ def create_order(request):
         # Verificar se o carrinho tem itens
         if not cart.cartitems.exists():
             return Response(
-                {"error": "O carrinho está vázio."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "O carrinho está vázio."}, status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Calcular total
         total_amount = sum(
-            item.quantity * item.product.price
-            for item in cart.cartitems.all()
+            item.quantity * item.product.price for item in cart.cartitems.all()
         )
 
         # Criar pedido
         order = Order.objects.create(
             user=request.user,
             total_amount=total_amount,
-            shipping_address=shipping_address
+            shipping_address=shipping_address,
         )
 
         # Criar itens do pedido
@@ -54,16 +52,18 @@ def create_order(request):
             if not product.in_stock or product.stock_quantity < cart_item.quantity:
                 order.delete()
                 return Response(
-                    {"error": f"O produto {product.name} não tem quantidades suficientes em estoque."},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {
+                        "error": f"O produto {product.name} não tem quantidades suficientes em estoque."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             # Criar item do pedido
             OrderItem.objects.create(
                 order=order,
                 product=product,
                 quantity=cart_item.quantity,
-                price=product.price
+                price=product.price,
             )
 
             # Atualizar estoque
@@ -71,7 +71,7 @@ def create_order(request):
             if product.stock_quantity == 0:
                 product.in_stock = False
             product.save()
-        
+
         # Processar pagamento
         success, transation_id, message = AOAPaymentProcessor.process_payment(
             order, payment_method, reference_number
@@ -87,9 +87,9 @@ def create_order(request):
                 {
                     "order": order_serializer.data,
                     "message": message,
-                    "transaction_id": transation_id
+                    "transaction_id": transation_id,
                 },
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_201_CREATED,
             )
         else:
             # Se o pagamento falhar, cancelar o pedido
@@ -102,15 +102,11 @@ def create_order(request):
                 product.stock_quantity += item.quantity
                 product.in_stock = True
                 product.save()
-            
-            return Response(
-                {"error": message},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
     except Cart.DoesNotExist:
         return Response(
-            {"error": "Carrinho não encontrado"},
-            status=status.HTTP_404_NOT_FOUND
+            {"error": "Carrinho não encontrado"}, status=status.HTTP_404_NOT_FOUND
         )
 
 
@@ -139,8 +135,7 @@ def get_order_detail(request, order_number):
         return Response(serializer.data)
     except Order.DoesNotExist:
         return Response(
-            {"error": "Pedido não encontrado"},
-            status=status.HTTP_404_NOT_FOUND
+            {"error": "Pedido não encontrado"}, status=status.HTTP_404_NOT_FOUND
         )
 
 
@@ -158,24 +153,20 @@ def request_refund(request, order_number):
         if order.status not in ["confirmed", "processing", "shipped"]:
             return Response(
                 {"error": "Este pedido não é elegível para o reembolso"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         # Processar reembolso
         success, message = AOAPaymentProcessor.refund_payment(order)
 
         if success:
             return Response({"message": message})
         else:
-            return Response(
-                {"error": message},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+
     except Order.DoesNotExist:
         return Response(
-            {"error": "Pedido não encontrado."},
-            status=status.HTTP_404_NOT_FOUND
+            {"error": "Pedido não encontrado."}, status=status.HTTP_404_NOT_FOUND
         )
 
 
@@ -191,16 +182,15 @@ def get_store_orders(request):
     if request.user.user_type != "seller":
         return Response(
             {"error": "Apenas vendedores pode acessar o pedidos das lojas."},
-            status=status.HTTP_403_FORBIDDEN
+            status=status.HTTP_403_FORBIDDEN,
         )
-    
+
     # Verificar se o vendedor tem uma loja
     if not hasattr(request.user, "store"):
         return Response(
-            {"error": "Não tens uma loja."},
-            status=status.HTTP_400_BAD_REQUEST
+            {"error": "Não tens uma loja."}, status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     # Obter itens de pedido para produtos da loja
     store_products = request.user.store.products.values_list("id", flat=True)
     order_items = OrderItem.objects.filter(product_id__in=store_products)
@@ -211,3 +201,66 @@ def get_store_orders(request):
 
     serializer = OrderSerializer(orders, many=True)
     return Response(serializer.data)
+
+
+@api_view(["PUT"])
+@permission_classes([IsAuthenticated])
+def update_order_status(request, order_number):
+    """
+    Atualizar o status de um pedido (apenas para vendedores)
+    """
+
+    # Verificar se o usuário é um vendedor
+    if request.user.user_type != "seller":
+        return Response(
+            {"error": "Apenas vendedores pode atualizar o status do pedido."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Verificar se o vendedor tem uma loja
+    if not hasattr(request.user, "store"):
+        return Response(
+            {"error": "Não tens uma loja."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        order = Order.objects.get(order_number=order_number)
+
+        # Verificar se o pedido contém produtos da loja do vendedor
+        store_products = request.user.store.products.values_list("id", flat=True)
+        has_store_product = order.items.filter(product_id__in=store_products).exists()
+
+        if not has_store_product:
+            return Response(
+                {"error": "Esse pedido não contém productos da sua loja."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Obter novo status
+        new_status = request.data.get("status")
+        if not new_status:
+            return Response(
+                {"error": "Pecisa de status."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validar status
+        valid_statuses = [choice[0] for choice in Order.ORDER_STATUS_CHOICES]
+        if new_status not in valid_statuses:
+            return Response(
+                {
+                    "error": f"Status inválido. Status validos são: {", ".join(valid_statuses)}"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Atualizar status
+        order.status = new_status
+        order.save()
+
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    except Order.DoesNotExist:
+        return Response(
+            {"error": "Pedido não encontrado."}, status=status.HTTP_404_NOT_FOUND
+        )
