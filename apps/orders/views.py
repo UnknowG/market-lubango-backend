@@ -1,3 +1,114 @@
-from django.shortcuts import render
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from apps.cart.models import Cart
+from .payments import AOAPaymentProcessor
+from .models import Order, OrderItem
+from .serializes import CreateOrderSerializer, OrderSerializer
 
-# Create your views here.
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_order(request):
+    """
+    Criar um novo pedido a partir do carrinho de compras
+    """
+    serializer = CreateOrderSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    cart_code = serializer.validated_data["cart_code"]
+    shipping_address = serializer.validated_data["shipping_address"]
+    payment_method = serializer.validated_data["payment_method"]
+    reference_number = serializer.validated_data.get("reference_number")
+
+    try:
+        # Order carrinho
+        cart = Cart.objects.get(cart_code=cart_code)
+
+        # Verificar se o carrinho tem itens
+        if not cart.cartitems.exists():
+            return Response(
+                {"error": "O carrinho está vázio."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Calcular total
+        total_amount = sum(
+            item.quantity * item.product.price
+            for item in cart.cartitems.all()
+        )
+
+        # Criar pedido
+        order = Order.objects.create(
+            user=request.user,
+            total_amount=total_amount,
+            shipping_address=shipping_address
+        )
+
+        # Criar itens do pedido
+        for cart_item in cart.cartitems.all():
+            # Verificar se o processo ainda está em estoque
+            product = cart_item.product
+            if not product.in_stock or product.stock_quantity < cart_item.quantity:
+                order.delete()
+                return Response(
+                    {"error": f"O produto {product.name} não tem quantidades suficientes em estoque."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Criar item do pedido
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                quantity=cart_item.quantity,
+                price=product.price
+            )
+
+            # Atualizar estoque
+            product.stock_quantity -= cart_item.quantity
+            if product.stock_quantity == 0:
+                product.in_stock = False
+            product.save()
+        
+        # Processar pagamento
+        success, transation_id, message = AOAPaymentProcessor.process_payment(
+            order, payment_method, reference_number
+        )
+
+        if success:
+            # Limpar carrinho após pedido bem-sucedido
+            cart.cartitems.all().delete()
+
+            # Retornar dado do pedido
+            order_serializer = OrderSerializer(order)
+            return Response(
+                {
+                    "order": order_serializer.data,
+                    "message": message,
+                    "transaction_id": transation_id
+                },
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            # Se o pagamento falhar, cancelar o pedido
+            order.status = "cancelled"
+            order.save()
+
+            # Devolver produtos ao estoque
+            for item in order.items.all():
+                product = item.product
+                product.stock_quantity += item.quantity
+                product.in_stock = True
+                product.save()
+            
+            return Response(
+                {"error": message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    except Cart.DoesNotExist:
+        return Response(
+            {"error": "Carrinho não encontrado"},
+            status=status.HTTP_404_NOT_FOUND
+        )
