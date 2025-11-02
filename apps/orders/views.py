@@ -142,3 +142,38 @@ def get_order_detail(request, order_number):
             {"error": "Pedido não encontrado"},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def request_refund(request, order_number):
+    """
+    Solicita reembolso para um pedido
+    """
+
+    try:
+        order = Order.objects.get(order_number=order_number, user=request.user)
+
+        # Verificar se o pedido é elegível para reembolso
+        if order.status not in ["confirmed", "processing", "shipped"]:
+            return Response(
+                {"error": "Este pedido não é elegível para o reembolso"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Processar reembolso
+        success, message = AOAPaymentProcessor.refund_payment(order)
+
+        if success:
+            return Response({"message": message})
+        else:
+            return Response(
+                {"error": message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    except Order.DoesNotExist:
+        return Response(
+            {"error": "Pedido não encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
