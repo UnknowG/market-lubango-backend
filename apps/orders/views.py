@@ -177,3 +177,37 @@ def request_refund(request, order_number):
             {"error": "Pedido não encontrado."},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+# Views para vendedores
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_store_orders(request):
+    """
+    Obtém todos os pedidos para a loja do vendedor
+    """
+
+    # Verificar se o usuário é um vendedor
+    if request.user.user_type != "seller":
+        return Response(
+            {"error": "Apenas vendedores pode acessar o pedidos das lojas."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Verificar se o vendedor tem uma loja
+    if not hasattr(request.user, "store"):
+        return Response(
+            {"error": "Não tens uma loja."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Obter itens de pedido para produtos da loja
+    store_products = request.user.store.products.values_list("id", flat=True)
+    order_items = OrderItem.objects.filter(product_id__in=store_products)
+
+    # Obter pedidos únicos
+    order_ids = order_items.values_list("order_id", flat=True).distinct()
+    orders = Order.objects.filter(id__in=order_ids).order_by("-created_at")
+
+    serializer = OrderSerializer(orders, many=True)
+    return Response(serializer.data)
