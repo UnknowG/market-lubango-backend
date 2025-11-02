@@ -64,19 +64,20 @@ class AOAPaymentProcessor:
             return False, None, "Pagamento falhou. Por favor, tenta de novo ou use um outro método."
     
     @staticmethod
-    def refund_payment(order: Order, payment: Payment):
+    def refund_payment(order: Order):
         """
         Processa um reembolso
 
         Args:
             order: Objeto Order
-            payment: Objeto Payment
         
         Returns:
             tuple: (success: bool, message: str)
         """
 
-        try:            
+        try:
+            payment = order.payment
+
             # Simulação de processamento de reembolso
             success = random.choice([True, True, False]) # 66% de chance de sucesso
 
