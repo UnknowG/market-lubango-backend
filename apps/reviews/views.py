@@ -65,3 +65,32 @@ def add_reviews(request):
 
     serializer = ReviewSerializer(review)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["PUT"])
+@permission_classes([IsAuthenticated])
+def update_review(request, pk):
+    """
+    Atualiza uma avaliação existente
+    """
+
+    try: 
+        review = Review.objects.get(pk=pk, user=request.user)
+    except Review.DoesNotExist:
+        return Response(
+            {"error": "Avalaição não encontrada."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    rating = request.data.get("rating")
+    comment = request.data.get("comment")
+
+    if rating:
+        review.rating = rating
+    if comment:
+        review.comment = comment
+
+    review.save()
+
+    serializer = ReviewSerializer(review)
+    return Response(serializer.data)
