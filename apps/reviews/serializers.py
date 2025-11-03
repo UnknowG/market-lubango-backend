@@ -12,7 +12,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "rating", "comment", "created_at", "updated_at"]
 
 
-class ProductRatingSerialier(serializers.ModelSerializer):
+class ProductRatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductRating
         fields = ["average_rating", "total_reviews"]
