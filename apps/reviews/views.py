@@ -94,3 +94,24 @@ def update_review(request, pk):
 
     serializer = ReviewSerializer(review)
     return Response(serializer.data)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_review(request, pk):
+    """
+    Exclui uma avaliação
+    """
+
+    try:
+        review = Review.objects.get(pk=pk, user=request.user)
+        review.delete()
+        return Response(
+            {"message": "Avaliação excluída com sucesso."},
+            status=status.HTTP_204_NO_CONTENT
+        )
+    except Review.DoesNotExist:
+        return Response(
+            {"error": "Avaliação não encontrada."},
+            status=status.HTTP_404_NOT_FOUND
+        )
