@@ -58,3 +58,23 @@ def get_user_wishlist(request):
     wishlist_items = Wishlist.objects.filter(user=request.user)
     serializer = WishlistSerializer(wishlist_items, many=True)
     return Response(serializer.data)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_wishlist_item(request, pk):
+    """
+    Remove um item da lista de desejos
+    """
+    try:
+        wishlist_item = Wishlist.objects.get(pk=pk, user=request.user)
+        wishlist_item.delete()
+        return Response(
+            {"message": "O item foi removido da lista de desejos."},
+            status=status.HTTP_204_NO_CONTENT
+        )
+    except Wishlist.DoesNotExist:
+        return Response(
+            {"error": "Lista de desejos não encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
