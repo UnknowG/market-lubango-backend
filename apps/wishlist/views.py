@@ -6,7 +6,6 @@ from .models import Wishlist
 from .serializers import WishlistSerializer
 
 
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def add_to_wishlist(request):
@@ -18,19 +17,18 @@ def add_to_wishlist(request):
 
     if not product_id:
         return Response(
-            {"error": "Produto não encontrado."},
-            status=status.HTTP_404_NOT_FOUND
+            {"error": "Produto não encontrado."}, status=status.HTTP_404_NOT_FOUND
         )
-    
+
     try:
         from apps.products.models import Product
+
         product = Product.objects.get(id=product_id)
     except Product.DoesNotExist:
         return Response(
-            {"error": "Produto não encontrado."},
-            status=status.HTTP_404_NOT_FOUND
+            {"error": "Produto não encontrado."}, status=status.HTTP_404_NOT_FOUND
         )
-    
+
     user = request.user
 
     # Verificar se o produto já está na lista de desejos
@@ -41,9 +39,9 @@ def add_to_wishlist(request):
         wishlist_item.delete()
         return Response(
             {"message": "O Produto foi removido da lista de desejos."},
-            status=status.HTTP_204_NO_CONTENT
+            status=status.HTTP_204_NO_CONTENT,
         )
-    
+
     # Se não existe, adicionar à lista
     serializer = WishlistSerializer(wishlist_item)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -71,10 +69,10 @@ def delete_wishlist_item(request, pk):
         wishlist_item.delete()
         return Response(
             {"message": "O item foi removido da lista de desejos."},
-            status=status.HTTP_204_NO_CONTENT
+            status=status.HTTP_204_NO_CONTENT,
         )
     except Wishlist.DoesNotExist:
         return Response(
             {"error": "Lista de desejos não encontrado."},
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_404_NOT_FOUND,
         )
