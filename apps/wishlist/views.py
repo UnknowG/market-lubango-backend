@@ -47,3 +47,14 @@ def add_to_wishlist(request):
     # Se não existe, adicionar à lista
     serializer = WishlistSerializer(wishlist_item)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_wishlist(request):
+    """
+    Obtém a lista de dessjos do usuário
+    """
+    wishlist_items = Wishlist.objects.filter(user=request.user)
+    serializer = WishlistSerializer(wishlist_items, many=True)
+    return Response(serializer.data)
