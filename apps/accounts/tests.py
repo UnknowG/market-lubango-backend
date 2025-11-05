@@ -1,5 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.urls import reverse
+from rest_framework import status
 from rest_framework.test import APITestCase
 from .models import Store
 
@@ -78,3 +80,34 @@ class AuthenticationAPITest(APITestCase):
             "user_type": "buyer"
         }
         self.user = User.objects.create_user(**self.user_data)
+    
+    def test_user_registration(self):
+        """Testa o registro de um novo usuário"""
+        url = reverse("register")
+        new_user_data = {
+            "username": "newuser",
+            "email": "newuser@example.com",
+            "password": "newpass123",
+            "confirm_password": "newpass123",
+            "first_name": "New",
+            "last_name": "User",
+            "user_type": "buyer"
+        }
+        response = self.client.post(url, new_user_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(User.objects.count(), 2)
+    
+    def test_user_registration_password_mismatch(self):
+        """Testa o registro com senhas não correspondentes"""
+        url = reverse("register")
+        new_user_data = {
+            "username": "newuser",
+            "email": "newuser@example.com",
+            "password": "newpass123",
+            "confirm_password": "differentpass",
+            "first_name": "New",
+            "last_name": "User",
+            "user_type": "buyer"
+        }
+        response = self.client.post(url, new_user_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
