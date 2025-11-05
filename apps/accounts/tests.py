@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Store
 
 User = get_user_model()
@@ -111,3 +112,59 @@ class AuthenticationAPITest(APITestCase):
         }
         response = self.client.post(url, new_user_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_user_login(self):
+        """Testa o login de um usuário"""
+        url = reverse("token_obtain_pair")
+        login_data = {
+            "username": "testuser",
+            "password": "testpass123"
+        }
+        response = self.client.post(url, login_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertIn("user", response.data)
+    
+
+    def test_user_login_with_email(self):
+        """Testa o login usando email em vez de username"""
+        url = reverse("token_obtain_pair")
+        login_data = {
+            "username": "test@example.com",  # Usando email
+            "password": "testpass123"
+        }
+        response = self.client.post(url, login_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+    
+
+    def test_user_logout(self):
+        """Testa o logout de um usuário"""
+        # Primeiro faz login para obter o token
+        url = reverse("token_obtain_pair")
+        login_data = {
+            "username": "testuser",
+            "password": "testpass123"
+        }
+        response = self.client.post(url, login_data, format="json")
+        refresh_token = response.data["refresh"]
+        
+        # Agora faz logout
+        url = reverse("logout")
+        logout_data = {"refresh": refresh_token}
+        response = self.client.post(url, logout_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+    
+    def test_get_user_profile(self):
+        """Testa a obtenção do perfil do usuário"""
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Obtém o perfil
+        url = reverse("user_profile")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.user_data["username"])
+        self.assertEqual(response.data["email"], self.user_data["email"])
