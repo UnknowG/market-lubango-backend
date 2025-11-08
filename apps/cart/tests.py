@@ -222,3 +222,49 @@ class CartAPITest(APITestCase):
         # Verifica se o carrinho foi associado ao usuário
         cart = Cart.objects.get(user=self.user)
         self.assertEqual(cart.cart_code, response.data["cart_code"])
+    
+    def test_get_user_cart(self):
+        """Testa a obtenção do carrinho do usuário"""
+        # Cria um carrinho para o usuário
+        cart = Cart.objects.create(user=self.user, cart_code="USER12345678")
+        
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Obtém o carrinho do usuário
+        url = reverse("get_user_cart")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["cart_code"], "USER12345678")
+    
+    def test_merge_carts(self):
+        """Testa a mesclagem de carrinhos"""
+        # Cria um carrinho temporário com itens
+        temp_cart = Cart.objects.create(cart_code="TEMP12345678")
+        CartItem.objects.create(
+            cart=temp_cart,
+            product=self.product,
+            quantity=2
+        )
+
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Mescla os carrinhos
+        url = reverse("merge_carts")
+        data = {
+            "temp_cart_code": "TEMP12345678"
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verifica se os itens foram movidos para o carrinho do usuário
+        user_cart = Cart.objects.get(user=self.user)
+        self.assertEqual(user_cart.cartitems.count(), 1)
+        self.assertEqual(user_cart.cartitems.first().product, self.product)
+        
+        # Verifica se o carrinho temporário foi removido
+        with self.assertRaises(Cart.DoesNotExist):
+            Cart.objects.get(cart_code="TEMP12345678")
