@@ -170,3 +170,25 @@ class CartAPITest(APITestCase):
         }
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_delete_cartitem(self):
+        """Testa a remoção de um item do carrinho"""
+        # Primeiro adiciona um item ao carrinho
+        cart_item = CartItem.objects.create(
+            cart=self.cart,
+            product=self.product,
+            quantity=2
+        )
+        
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Remove o item
+        url = reverse("delete_cartitem", kwargs={"pk": cart_item.id})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        
+        # Verifica se o item foi removido
+        with self.assertRaises(CartItem.DoesNotExist):
+            CartItem.objects.get(id=cart_item.id)
