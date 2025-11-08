@@ -192,3 +192,17 @@ class CartAPITest(APITestCase):
         # Verifica se o item foi removido
         with self.assertRaises(CartItem.DoesNotExist):
             CartItem.objects.get(id=cart_item.id)
+    
+    def test_delete_cartitem_unauthorized(self):
+        """Testa a remoção de um item sem autenticação"""
+        # Primeiro adiciona um item ao carrinho
+        cart_item = CartItem.objects.create(
+            cart=self.cart,
+            product=self.product,
+            quantity=2
+        )
+        
+        # Tenta remover o item sem autenticação
+        url = reverse("delete_cartitem", kwargs={"pk": cart_item.id})
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
