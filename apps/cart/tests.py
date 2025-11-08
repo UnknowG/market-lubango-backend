@@ -152,3 +152,21 @@ class CartAPITest(APITestCase):
         response = self.client.put(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["data"]["quantity"], 5)
+    
+    def test_update_cartitem_quantity_unauthorized(self):
+        """Testa a atualização da quantidade de um item sem autenticação"""
+        # Primeiro adiciona um item ao carrinho
+        cart_item = CartItem.objects.create(
+            cart=self.cart,
+            product=self.product,
+            quantity=2
+        )
+        
+        # Tenta atualizar a quantidade sem autenticação
+        url = reverse("update_cartitem_quantity")
+        data = {
+            "item_id": cart_item.id,
+            "quantity": 5
+        }
+        response = self.client.put(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
