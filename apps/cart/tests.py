@@ -1,6 +1,10 @@
 from django.test import TestCase
+from django.contrib.auth import get_user_model()
+from rest_framework.test import APITestCase
 from .models import Cart, CartItem
 from apps.products.models import Product, Category
+
+User = get_user_model()
 
 class CartModelTest(TestCase):
     """Testes para o modelo Cart"""
@@ -48,3 +52,24 @@ class CartItemModelTest(TestCase):
         """Testa o método __str__ do modelo CartItem"""
         expected_str = f"2 x {self.product.name} in cart {self.cart.cart_code}"
         self.assertEqual(str(self.cart_item), expected_str)
+
+
+class CartAPITest(APITestCase):
+    """Testes para os endpoints de carrinho"""
+    
+    def setUp(self):
+        """Configuração inicial para os testes"""
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="testpass123"
+        )
+        self.category = Category.objects.create(name="Test Category")
+        self.product = Product.objects.create(
+            name="Test Product",
+            price=10.99,
+            category=self.category,
+            stock_quantity=10,
+            in_stock=True
+        )
+        self.cart = Cart.objects.create(cart_code="TEST12345678")
