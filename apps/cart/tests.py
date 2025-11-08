@@ -206,3 +206,19 @@ class CartAPITest(APITestCase):
         url = reverse("delete_cartitem", kwargs={"pk": cart_item.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_create_user_cart(self):
+        """Testa a criação de um carrinho para o usuário"""
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Cria o carrinho do usuário
+        url = reverse("create_user_cart")
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("cart_code", response.data)
+        
+        # Verifica se o carrinho foi associado ao usuário
+        cart = Cart.objects.get(user=self.user)
+        self.assertEqual(cart.cart_code, response.data["cart_code"])
