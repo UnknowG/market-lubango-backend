@@ -34,3 +34,16 @@ class OrderModelTest(TestCase):
             quantity=2,
             price=10.99,
         )
+    
+    def test_order_item_creation(self):
+        """Testa a criação de um item de pedido"""
+
+        self.assertEqual(self.order_item.order, self.order)
+        self.assertEqual(self.order_item.product, self.product)
+        self.assertEqual(self.order_item.quantity, 2)
+        self.assertEqual(self.order_item.price, 10.99)
+    
+    def test_order_item_str(self):
+        """Testa o método __str__ do modelo OrderItem"""
+        expected_str = f"2 x {self.product.name} pedido: {self.order.order_number}."
+        self.assertEqual(str(self.order_item), expected_str)
