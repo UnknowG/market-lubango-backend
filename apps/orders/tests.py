@@ -157,3 +157,260 @@ class OrderAPITest(APITestCase):
         # Verifica se o estoque foi atualizado
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_quantity, 8)  # 10 - 2
+    
+    def test_create_order_empty_cart(self):
+        """Testa a criação de um pedido com carrinho vazio"""
+        # Cria um carrinho vazio
+        empty_cart = Cart.objects.create(cart_code="EMPTY12345678")
+        
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Tenta criar o pedido
+        url = reverse("create_order")
+        data = {
+            "cart_code": "EMPTY12345678",
+            "shipping_address": "Test Address",
+            "payment_method": "reference"
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+    
+    def test_create_order_cart_not_found(self):
+        """Testa a criação de um pedido com carrinho inexistente"""
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Tenta criar o pedido
+        url = reverse("create_order")
+        data = {
+            "cart_code": "NONEXISTENT",
+            "shipping_address": "Test Address",
+            "payment_method": "reference"
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("error", response.data)
+    
+    def test_get_user_orders(self):
+        """Testa a obtenção dos pedidos do usuário"""
+        # Cria alguns pedidos para o usuário
+        order1 = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address 1"
+        )
+        order2 = Order.objects.create(
+            user=self.user,
+            total_amount=200.00,
+            shipping_address="Test Address 2"
+        )
+        
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Obtém os pedidos
+        url = reverse("user_orders")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        
+        # Verifica se os pedidos estão ordenados por data de criação (mais recente primeiro)
+        self.assertEqual(response.data[0]["id"], order2.id)
+        self.assertEqual(response.data[1]["id"], order1.id)
+    
+    def test_get_order_detail(self):
+        """Testa a obtenção de detalhes de um pedido"""
+        # Cria um pedido para o usuário
+        order = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address"
+        )
+        
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Obtém os detalhes do pedido
+        url = reverse("order_detail", kwargs={"order_number": order.order_number})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["order_number"], order.order_number)
+        self.assertEqual(response.data["total_amount"], "100.00")
+    
+    def test_get_order_detail_not_found(self):
+        """Testa a obtenção de detalhes de um pedido inexistente"""
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Tenta obter os detalhes do pedido
+        url = reverse("order_detail", kwargs={"order_number": "NONEXISTENT"})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("error", response.data)
+    
+    def test_request_refund(self):
+        """Testa a solicitação de reembolso"""
+        # Cria um pedido para o usuário
+        order = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address",
+            status="confirmed"
+        )
+
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Solicita o reembolso
+        url = reverse("request_refund", kwargs={"order_number": order.order_number})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("message", response.data)
+    
+    def test_request_refund_not_eligible(self):
+        """Testa a solicitação de reembolso para um pedido não elegível"""
+        # Cria um pedido para o usuário com status "delivered"
+        order = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address",
+            status="delivered"
+        )
+        
+        # Autentica o usuário
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Tenta solicitar o reembolso
+        url = reverse("request_refund", kwargs={"order_number": order.order_number})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+        
+    def test_get_store_orders(self):
+        """Testa a obtenção de pedidos para a loja do vendedor"""
+        # Cria um pedido com um produto da loja do vendedor
+        order = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address"
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=2,
+            price=10.99
+        )
+        
+        # Autentica o vendedor
+        refresh = RefreshToken.for_user(self.seller)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Obtém os pedidos da loja
+        url = reverse("store_orders")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], order.id)
+    
+    def test_get_store_orders_not_seller(self):
+        """Testa a obtenção de pedidos por um usuário que não é vendedor"""
+        # Autentica o usuário (que não é vendedor)
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Tenta obter os pedidos da loja
+        url = reverse("store_orders")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("error", response.data)
+    
+    def test_update_order_status(self):
+        """Testa a atualização do status de um pedido"""
+        # Cria um pedido com um produto da loja do vendedor
+        order = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address"
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=2,
+            price=10.99
+        )
+        
+        # Autentica o vendedor
+        refresh = RefreshToken.for_user(self.seller)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Atualiza o status do pedido
+        url = reverse("update_order_status", kwargs={"order_number": order.order_number})
+        data = {
+            "status": "processing"
+        }
+        response = self.client.put(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "processing")
+
+        # Verifica se o status foi atualizado no banco
+        order.refresh_from_db()
+        self.assertEqual(order.status, "processing")
+
+    def test_update_order_status_not_seller(self):
+        """Testa a atualização do status de um pedido por um usuário que não é vendedor"""
+        # Cria um pedido
+        order = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address"
+        )
+        
+        # Autentica o usuário (que não é vendedor)
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Tenta atualizar o status do pedido
+        url = reverse("update_order_status", kwargs={"order_number": order.order_number})
+        data = {
+            "status": "processing"
+        }
+        response = self.client.put(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("error", response.data)
+    
+    def test_update_order_status_invalid_status(self):
+        """Testa a atualização do status de um pedido com um status inválido"""
+        # Cria um pedido com um produto da loja do vendedor
+        order = Order.objects.create(
+            user=self.user,
+            total_amount=100.00,
+            shipping_address="Test Address"
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            quantity=2,
+            price=10.99
+        )
+        
+        # Autentica o vendedor
+        refresh = RefreshToken.for_user(self.seller)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+        
+        # Tenta atualizar o status do pedido com um status inválido
+        url = reverse("update_order_status", kwargs={"order_number": order.order_number})
+        data = {
+            "status": "invalid_status"
+        }
+        response = self.client.put(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
