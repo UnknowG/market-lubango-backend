@@ -10,9 +10,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     Serializer para avaliações de produtos.
     """
 
-    user = serializers.StringRelatedField(
-        read_only=True, help_text="Usuário que fez a avaliação"
-    )
+    user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Review
