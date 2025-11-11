@@ -1,7 +1,10 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from rest_framework.test import APITestCase
 from .models import Order, OrderItem, Payment
 from apps.products.models import Category, Product
+from apps.accounts.models import Store
+from apps.cart.models import Cart, CartItem
 
 User = get_user_model()
 
@@ -81,3 +84,41 @@ class PaymentModelTest(TestCase):
         """Testa o método __str__ do modelo Payment"""
         expected_str = f"Pagamento para o pedido: {self.order.order_number}"
         self.assertEqual(str(self.payment), expected_str)
+
+
+class OrderAPITest(APITestCase):
+    """Testes para os endpoints de pedidos"""
+    
+    def setUp(self):
+        """Configuração inicial para os testes"""
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
+        )
+        self.seller = User.objects.create_user(
+            username="seller",
+            email="seller@example.com",
+            password="sellerpass123",
+            user_type="seller",
+            is_approved_seller=True,
+        )
+        self.store = Store.objects.create(
+            name="Test Store",
+            owner=self.seller,
+        )
+        self.category = Category.objects.create(name="Test Category")
+        self.product = Product.objects.create(
+            name="Test Product",
+            price=10.99,
+            category=self.category,
+            store=self.store,
+            stock_quantity=10,
+            in_stock=True,
+        )
+        self.cart = Cart.objects.create(cart_code="TEST12345678")
+        CartItem.objects.create(
+            cart=self.cart,
+            product=self.product,
+            quantity=2,
+        )
