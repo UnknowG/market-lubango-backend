@@ -1,10 +1,11 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from rest_framework.test import APITestCase
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.accounts.models import Store
 from .models import Category, Product
+from apps.accounts.models import Store
 
 User = get_user_model()
 
@@ -14,7 +15,6 @@ class CategoryModelTest(TestCase):
 
     def test_create_category(self):
         """Testa a criação de uma categoria"""
-
         category = Category.objects.create(
             name="Test Category",
         )
@@ -33,6 +33,60 @@ class ProductModelTest(TestCase):
             password="sellerpass123",
             user_type="seller",
             is_approved_seller=True,
+        )
+        self.buyer = User.objects.create_user(
+            username="buyer",
+            email="buyer@example.com",
+            password="buyerpass123",
+            user_type="buyer",
+        )
+        self.store = Store.objects.create(
+            name="Test Store", description="A test store", owner=self.seller
+        )
+        self.category = Category.objects.create(
+            name="Test Category",
+        )
+        self.product = Product.objects.create(
+            name="Test Product",
+            description="A test product",
+            price=10.99,
+            category=self.category,
+            store=self.store,
+            featured=True,
+        )
+
+    def test_create_product(self):
+        """Testa a criação de um produto"""
+        product = Product.objects.create(
+            name="Test Product",
+            description="A test product",
+            price=10.99,
+            category=self.category,
+            store=self.store,
+        )
+        self.assertEqual(product.name, "Test Product")
+        self.assertEqual(product.store, self.store)
+        self.assertEqual(product.category, self.category)
+        self.assertTrue(product.slug)  # Verifica se o slug foi gerado automaticamente
+
+
+class ProductAPITest(APITestCase):
+    """Testes para os endpoints de produtos"""
+
+    def setUp(self):
+        """Configuração inicial para os testes"""
+        self.seller = User.objects.create_user(
+            username="seller",
+            email="seller@example.com",
+            password="sellerpass123",
+            user_type="seller",
+            is_approved_seller=True,
+        )
+        self.buyer = User.objects.create_user(
+            username="buyer",
+            email="buyer@example.com",
+            password="buyerpass123",
+            user_type="buyer",
         )
         self.store = Store.objects.create(
             name="Test Store", description="A test store", owner=self.seller
