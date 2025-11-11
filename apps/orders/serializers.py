@@ -9,7 +9,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     Inclui informações do produto.
     """
 
-    product = ProductListSerializer(read_only=True)
+    product = ProductListSerializer(read_only=True, help_text="Produto do pedido")
 
     class Meta:
         model = OrderItem
@@ -22,7 +22,7 @@ class OrderSerializer(serializers.ModelSerializer):
     Inclui todos os itens do pedido.
     """
 
-    items = OrderItemSerializer(read_only=True, many=True)
+    items = OrderItemSerializer(read_only=True, many=True, help_text="Itens do pedido")
 
     class Meta:
         model = Order
@@ -63,9 +63,14 @@ class CreateOrderSerializer(serializers.Serializer):
     Serializer para criação de pedidos.
     """
 
-    cart_code = serializers.CharField()
-    shipping_address = serializers.CharField()
-    payment_method = serializers.ChoiceField(choices=Payment.PAYMENT_METHOD_CHOICES)
+    cart_code = serializers.CharField(help_text="Código do carrinho de compras")
+    shipping_address = serializers.CharField(help_text="Endereço de entrega")
+    payment_method = serializers.ChoiceField(
+        choices=Payment.PAYMENT_METHOD_CHOICES, help_text="Método de pagamento"
+    )
     reference_number = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text="Número de referência (para pagamentos por referência)",
     )

@@ -9,8 +9,10 @@ class CartItemSerializer(serializers.ModelSerializer):
     Inclui informações do produto e calcula o subtotal.
     """
 
-    product = ProductListSerializer(read_only=True)
-    sub_total = serializers.SerializerMethodField()
+    product = ProductListSerializer(read_only=True, help_text="Produto no carrinho")
+    sub_total = serializers.SerializerMethodField(
+        help_text="Subtotal do item (preço * quantidade)"
+    )
 
     class Meta:
         model = CartItem
@@ -30,8 +32,10 @@ class CartSerializer(serializers.ModelSerializer):
     Inclui todos os itens e calcula o total do carrinho.
     """
 
-    cartitems = CartItemSerializer(read_only=True, many=True)
-    cart_total = serializers.SerializerMethodField()
+    cartitems = CartItemSerializer(
+        read_only=True, many=True, help_text="Itens do carrinho"
+    )
+    cart_total = serializers.SerializerMethodField(help_text="Total do carrinho")
 
     class Meta:
         model = Cart
@@ -52,7 +56,9 @@ class CartStatSerializer(serializers.ModelSerializer):
     Inclui apenas informações básicas e a quantidade total de itens.
     """
 
-    total_quantity = serializers.SerializerMethodField()
+    total_quantity = serializers.SerializerMethodField(
+        help_text="Quantidade total de itens no carrinho"
+    )
 
     class Meta:
         model = Cart
