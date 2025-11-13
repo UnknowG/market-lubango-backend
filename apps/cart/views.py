@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -53,18 +54,11 @@ def create_cart(request):
 def add_to_cart(request):
     """
     Endpoint para adicionar um produto ao carrinho.
-
-    Parâmetros:
-    - cart_code: Código do carrinho (no corpo da requisição)
-    - product_id: ID do produto
-    - quantity: Quantidade (opcional, padrão: 1)
-
-    Retorna:
-    - Detalhes do carrinho atualizado ou mensagem de erro
+    Usa transação atômica para evitar race conditions.
     """
     cart_code = request.data.get("cart_code")
     product_id = request.data.get("product_id")
-    quantity = request.data.get("quantity", 1)
+    quantity = int(request.data.get("quantity", 1))
 
     if not cart_code:
         return Response(
@@ -72,45 +66,58 @@ def add_to_cart(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    cart, created = Cart.objects.get_or_create(cart_code=cart_code)
+    if quantity < 1:
+        return Response(
+            {"error": "Quantidade deve ser maior que zero."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     try:
-        product = Product.objects.get(id=product_id, in_stock=True)
+        with transaction.atomic():
+            # Lock do produto para evitar race condition
+            product = Product.objects.select_for_update().get(
+                id=product_id, 
+                in_stock=True
+            )
+            
+            cart, created = Cart.objects.get_or_create(cart_code=cart_code)
+            
+            cartitem, item_created = CartItem.objects.get_or_create(
+                product=product, 
+                cart=cart,
+                defaults={'quantity': 0}
+            )
+
+            new_quantity = cartitem.quantity + quantity
+
+            # Verificar estoque
+            if product.stock_quantity < new_quantity:
+                return Response(
+                    {
+                        "error": f"Quantidade solicitada excede o estoque disponível. "
+                                f"Apenas {product.stock_quantity} disponível."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            cartitem.quantity = new_quantity
+            cartitem.save()
+
+        # Recarregar o carrinho fora da transação
+        cart.refresh_from_db()
+        serializer = CartSerializer(cart)
+        return Response(serializer.data)
+
     except Product.DoesNotExist:
         return Response(
             {"error": "Produto não encontrado ou fora de estoque."},
             status=status.HTTP_404_NOT_FOUND,
         )
-
-    # Verificar se tem produto suficiente em estoque
-    if product.stock_quantity < quantity:
+    except Exception as e:
         return Response(
-            {
-                "error": f"Quantidade solicitada excede o estoque disponível. Apenas {product.stock_quantity} disponível."
-            },
+            {"error": f"Erro ao adicionar produto: {str(e)}"},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-    cartitem, created = CartItem.objects.get_or_create(product=product, cart=cart)
-
-    if created:
-        cartitem.quantity = quantity
-    else:
-        # Verificar se a nova quantidade em estoque é excedido
-        new_quantity = cartitem.quantity + quantity
-        if product.stock_quantity < new_quantity:
-            return Response(
-                {
-                    "error": f"Quantidade solicitada excede o estoque disponível. Apenas {product.stock_quantity} disponível."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        cartitem.quantity = new_quantity
-
-    cartitem.save()
-
-    serializer = CartSerializer(cart)
-    return Response(serializer.data)
 
 
 @api_view(["PUT"])
@@ -230,45 +237,61 @@ def get_user_cart(request):
 def merge_carts(request):
     """
     Endpoint para mesclar o carrinho temporário com o carrinho do usuário.
-
-    Parâmetros:
-    - temp_cart_code: Código do carrinho temporário
-
-    Retorna:
-    - Detalhes do carrinho mesclado ou mensagem de erro
+    SOMA as quantidades de itens duplicados.
     """
     try:
-        user_cart, created = Cart.objects.get_or_create(user=request.user)
-        if created:
-            import random
-            import string
+        with transaction.atomic():
+            user_cart, created = Cart.objects.get_or_create(user=request.user)
+            if created:
+                import random
+                import string
+                user_cart.cart_code = "".join(
+                    random.choices(string.ascii_letters + string.digits, k=11)
+                )
+                user_cart.save()
 
-            user_cart.cart_code = "".join(
-                random.choices(string.ascii_letters + string.digits, k=11)
-            )
-            user_cart.save()
-
-        temp_cart_code = request.data.get("temp_cart_code")
-        if temp_cart_code:
-            try:
-                temp_cart = Cart.objects.get(cart_code=temp_cart_code)
-                for item in temp_cart.cartitems.all():
-                    if (
-                        not item.product.in_stock
-                        or item.product.stock_quantity < item.quantity
-                    ):
-                        continue  # Pular itens fora de estoque
-
-                    CartItem.objects.update_or_create(
-                        cart=user_cart,
-                        product=item.product,
-                        defaults={"quantity": item.quantity},
-                    )
-                temp_cart.delete()
-            except Cart.DoesNotExist:
-                pass
+            temp_cart_code = request.data.get("temp_cart_code")
+            if temp_cart_code:
+                try:
+                    temp_cart = Cart.objects.get(cart_code=temp_cart_code)
+                    
+                    for item in temp_cart.cartitems.all():
+                        # Verificar se produto está disponível
+                        if not item.product.in_stock:
+                            continue
+                        
+                        # Buscar ou criar item no carrinho do usuário
+                        user_item, item_created = CartItem.objects.get_or_create(
+                            cart=user_cart,
+                            product=item.product,
+                            defaults={"quantity": 0}
+                        )
+                        
+                        # SOMAR quantidades
+                        new_quantity = user_item.quantity + item.quantity
+                        
+                        # Verificar estoque
+                        if item.product.stock_quantity < new_quantity:
+                            # Usa a quantidade máxima disponível
+                            new_quantity = min(
+                                new_quantity, 
+                                item.product.stock_quantity
+                            )
+                        
+                        user_item.quantity = new_quantity
+                        user_item.save()
+                    
+                    # Deletar carrinho temporário
+                    temp_cart.delete()
+                    
+                except Cart.DoesNotExist:
+                    pass
 
         serializer = CartSerializer(user_cart)
         return Response(serializer.data)
+        
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": str(e)}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
