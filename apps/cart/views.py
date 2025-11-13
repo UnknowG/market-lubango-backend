@@ -50,20 +50,27 @@ def create_cart(request):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
-def add_to_cart(request, cart_code):
+def add_to_cart(request):
     """
     Endpoint para adicionar um produto ao carrinho.
 
     Parâmetros:
-    - cart_code: Código do carrinho (obtido da URL)
+    - cart_code: Código do carrinho (no corpo da requisição)
     - product_id: ID do produto
     - quantity: Quantidade (opcional, padrão: 1)
 
     Retorna:
     - Detalhes do carrinho atualizado ou mensagem de erro
     """
+    cart_code = request.data.get("cart_code")
     product_id = request.data.get("product_id")
     quantity = request.data.get("quantity", 1)
+
+    if not cart_code:
+        return Response(
+            {"error": "Código do carrinho é obrigatório."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     cart, created = Cart.objects.get_or_create(cart_code=cart_code)
 
@@ -107,6 +114,7 @@ def add_to_cart(request, cart_code):
 
 
 @api_view(["PUT"])
+@permission_classes([IsAuthenticated])
 def update_cartitem_quantity(request):
     """
     Endpoint para atualizar a quantidade de um item no carrinho.
@@ -152,7 +160,7 @@ def update_cartitem_quantity(request):
 
 
 @api_view(["DELETE"])
-@permission_classes([IsAuthenticated])  # Adicionado permissão
+@permission_classes([IsAuthenticated])
 def delete_cartitem(request, pk):
     """
     Endpoint para remover um item do carrinho.

@@ -6,6 +6,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Cart, CartItem
 from apps.products.models import Product, Category
+from apps.accounts.models import Store
 
 User = get_user_model()
 
@@ -35,8 +36,21 @@ class CartItemModelTest(TestCase):
         """Configuração inicial para os testes"""
         self.cart = Cart.objects.create(cart_code="TEST12345678")
         self.category = Category.objects.create(name="Test Category")
+        self.seller = User.objects.create_user(
+            username="seller",
+            email="seller@example.com",
+            password="testpass123",
+            user_type="seller"
+        )
+        self.store = Store.objects.create(
+            name="Test Store",
+            owner=self.seller
+        )
         self.product = Product.objects.create(
-            name="Test Product", price=10.99, category=self.category
+            name="Test Product", 
+            price=10.99, 
+            category=self.category,
+            store=self.store
         )
         self.cart_item = CartItem.objects.create(
             cart=self.cart, product=self.product, quantity=2
@@ -63,10 +77,21 @@ class CartAPITest(APITestCase):
             username="testuser", email="test@example.com", password="testpass123"
         )
         self.category = Category.objects.create(name="Test Category")
+        self.seller = User.objects.create_user(
+            username="seller",
+            email="seller@example.com",
+            password="testpass123",
+            user_type="seller"
+        )
+        self.store = Store.objects.create(
+            name="Test Store",
+            owner=self.seller
+        )
         self.product = Product.objects.create(
             name="Test Product",
             price=10.99,
             category=self.category,
+            store=self.store,
             stock_quantity=10,
             in_stock=True,
         )
@@ -95,8 +120,8 @@ class CartAPITest(APITestCase):
 
     def test_add_to_cart(self):
         """Testa a adição de um produto ao carrinho"""
-        url = reverse("add_to_cart", kwargs={"cart_code": self.cart.cart_code})
-        data = {"product_id": self.product.id, "quantity": 2}
+        url = reverse("add_to_cart")
+        data = {"product_id": self.product.id, "quantity": 2, "cart_code": self.cart.cart_code}
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["cartitems"]), 1)
@@ -104,17 +129,18 @@ class CartAPITest(APITestCase):
 
     def test_add_to_cart_product_not_found(self):
         """Testa a adição de um produto inexistente ao carrinho"""
-        url = reverse("add_to_cart", kwargs={"cart_code": self.cart.cart_code})
-        data = {"product_id": 999, "quantity": 2}
+        url = reverse("add_to_cart")
+        data = {"product_id": 999, "quantity": 2, "cart_code": self.cart.cart_code}
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_add_to_cart_insufficient_stock(self):
         """Testa a adição de um produto com estoque insuficiente"""
-        url = reverse("add_to_cart", kwargs={"cart_code": self.cart.cart_code})
+        url = reverse("add_to_cart")
         data = {
             "product_id": self.product.id,
             "quantity": 20,  # Mais do que o estoque disponível (10)
+            "cart_code": self.cart.cart_code
         }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
