@@ -177,6 +177,7 @@ class StoreAPITest(APITestCase):
             email="seller@example.com",
             password="sellerpass123",
             user_type="seller",
+            is_approved_seller=True,
         )
         self.buyer = User.objects.create_user(
             username="buyer",
