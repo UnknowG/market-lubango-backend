@@ -19,7 +19,7 @@ class OrderModelTest(TestCase):
         """Configuração inicial para os testes"""
 
         self.user = User.objects.create_user(
-            sername="testuser",
+            username="testuser",
             email="test@example.com",
             password="testpass123",
         )
@@ -245,12 +245,19 @@ class OrderAPITest(APITestCase):
 
     def test_request_refund(self):
         """Testa a solicitação de reembolso"""
-        # Cria um pedido para o usuário
+        # Cria um pedido para o usuário com pagamento
         order = Order.objects.create(
             user=self.user,
             total_amount=100.00,
             shipping_address="Test Address",
             status="confirmed",
+            payment_status="paid",
+        )
+        Payment.objects.create(
+            order=order,
+            payment_method="reference",
+            payment_status="completed",
+            amount=100.00,
         )
 
         # Autentica o usuário

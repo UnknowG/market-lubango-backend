@@ -8,9 +8,9 @@ urlpatterns = [
     path("<str:order_number>/", views.get_order_detail, name="order_detail"),
     path("<str:order_number>/refund/", views.request_refund, name="request_refund"),
     # Seller order management
-    path("seller/", views.get_store_orders, name="store_orders"),
+    path("store/", views.get_store_orders, name="store_orders"),
     path(
-        "seller/<str:order_number>/status/",
+        "store/<str:order_number>/status/",
         views.update_order_status,
         name="update_order_status",
     ),

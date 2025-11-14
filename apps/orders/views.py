@@ -28,7 +28,7 @@ def create_order(request):
         cart = Cart.objects.get(cart_code=cart_code)
 
         # Verificar se o carrinho tem itens
-        if not cart.cartitem.exists():
+        if not cart.cartitems.exists():
             return Response(
                 {"error": "O carrinho está vazio."}, status=status.HTTP_400_BAD_REQUEST
             )
