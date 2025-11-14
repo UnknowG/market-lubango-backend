@@ -23,6 +23,17 @@ class OrderModelTest(TestCase):
             email="test@example.com",
             password="testpass123",
         )
+        self.seller = User.objects.create_user(
+            username="seller",
+            email="seller@example.com",
+            password="sellerpass123",
+            user_type="seller",
+            is_approved_seller=True,
+        )
+        self.store = Store.objects.create(
+            name="Test Store",
+            owner=self.seller,
+        )
         self.order = Order.objects.create(
             user=self.user,
             total_amount=100.00,
@@ -33,6 +44,7 @@ class OrderModelTest(TestCase):
             name="Test Product",
             price=10.99,
             category=self.category,
+            store=self.store,
         )
         self.order_item = OrderItem.objects.create(
             order=self.order,
@@ -142,7 +154,8 @@ class OrderAPITest(APITestCase):
         # Verifica se o pedido foi criado
         order = Order.objects.get(user=self.user)
         self.assertEqual(order.shipping_address, "Test Address")
-        self.assertEqual(order.total_amount, 21.98)  # 10.99 * 2
+        from decimal import Decimal
+        self.assertEqual(order.total_amount, Decimal('21.98'))  # 10.99 * 2
 
         # Verifica se os itens do pedido foram criados
         self.assertEqual(order.items.count(), 1)

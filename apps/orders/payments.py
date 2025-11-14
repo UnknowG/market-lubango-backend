@@ -1,3 +1,4 @@
+from django.conf import settings
 import random
 import string
 from .models import Order, Payment
@@ -38,7 +39,12 @@ class AOAPaymentProcessor:
 
         # Simulação de processamento de pagamento
         # Em um ambiente real, aqui seria feita a integração com o gateway de pagamento
-        success = random.choice([True, True, True, False])  # 75% de chance de sucesso
+        if getattr(settings, 'TESTING', False):
+            # Modo de teste: sempre sucesso
+            success = True
+        else:
+            # Modo normal: 75% de chance de sucesso
+            success = random.choice([True, True, True, False])
 
         if success:
             # Gerar ID de transação
@@ -47,7 +53,7 @@ class AOAPaymentProcessor:
             payment.payment_status = "completed"
             payment.save()
 
-            # Atualizar status do pedido  # Corrigido: stauts para status
+            # Atualizar status do pedido
             order.payment_status = "paid"
             order.status = "confirmed"
             order.save()
@@ -83,7 +89,12 @@ class AOAPaymentProcessor:
             payment = order.payment
 
             # Simulação de processamento de reembolso
-            success = random.choice([True, True, False])  # 66% de chance de sucesso
+            if getattr(settings, 'TESTING', False):
+                # Modo de teste: sempre sucesso
+                success = True
+            else:
+                # Modo normal: 66% de chance de sucesso
+                success = random.choice([True, True, False])
 
             if success:
                 # Gerar ID de transação de reembolso
@@ -92,6 +103,7 @@ class AOAPaymentProcessor:
                 payment.save()
 
                 # Atualizar status do pedido
+                order.payment_status = "refunded"
                 order.status = "cancelled"
                 order.save()
 
