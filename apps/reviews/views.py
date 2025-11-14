@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from apps.orders.models import OrderItem
 from .models import ProductRating, Review
 from .serializers import ProductRatingSerializer, ReviewSerializer
@@ -24,21 +25,43 @@ def add_review(request):
     """
     product_id = request.data.get("product_id")
     rating = request.data.get("rating")
-    comment = request.data.get("comment")
+    comment = request.data.get("comment", "")
 
-    if not product_id or not rating:
+    # Validar campos obrigatórios
+    if not product_id:
         return Response(
-            {"error": "É necessário o ID do produto e o rating"},
+            {"error": "O ID do produto é obrigatório."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    if not rating:
+        return Response(
+            {"error": "A classificação é obrigatória."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # Validar rating
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 5:
+            return Response(
+                {"error": "A classificação deve estar entre 1 e 5."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    except (ValueError, TypeError):
+        return Response(
+            {"error": "Classificação inválida."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Buscar produto
     try:
         from apps.products.models import Product
-
         product = Product.objects.get(id=product_id)
     except Product.DoesNotExist:
         return Response(
-            {"error": "Produto não encontrado."}, status=status.HTTP_404_NOT_FOUND
+            {"error": "Produto não encontrado."}, 
+            status=status.HTTP_404_NOT_FOUND
         )
 
     # Verificar se o usuário já avaliou este produto
@@ -57,17 +80,25 @@ def add_review(request):
 
     if not has_purchased:
         return Response(
-            {"error": "Podes apenas avaliar o produto que já comprou."},
+            {"error": "Você só pode avaliar produtos que já comprou."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     # Criar avaliação
-    review = Review.objects.create(
-        product=product, user=request.user, rating=rating, comment=comment
-    )
-
-    serializer = ReviewSerializer(review)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    try:
+        review = Review.objects.create(
+            product=product, 
+            user=request.user, 
+            rating=rating, 
+            comment=comment
+        )
+        serializer = ReviewSerializer(review)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except ValidationError as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 @api_view(["PUT"])
@@ -87,21 +118,41 @@ def update_review(request, pk):
         review = Review.objects.get(pk=pk, user=request.user)
     except Review.DoesNotExist:
         return Response(
-            {"error": "Avaliação não encontrada."}, status=status.HTTP_404_NOT_FOUND
+            {"error": "Avaliação não encontrada."}, 
+            status=status.HTTP_404_NOT_FOUND
         )
 
     rating = request.data.get("rating")
     comment = request.data.get("comment")
 
-    if rating:
-        review.rating = rating
-    if comment:
+    # Validar rating se fornecido
+    if rating is not None:
+        try:
+            rating = int(rating)
+            if rating < 1 or rating > 5:
+                return Response(
+                    {"error": "A classificação deve estar entre 1 e 5."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            review.rating = rating
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "Classificação inválida."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    
+    if comment is not None:
         review.comment = comment
 
-    review.save()
-
-    serializer = ReviewSerializer(review)
-    return Response(serializer.data)
+    try:
+        review.save()
+        serializer = ReviewSerializer(review)
+        return Response(serializer.data)
+    except ValidationError as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 @api_view(["DELETE"])
@@ -126,7 +177,8 @@ def delete_review(request, pk):
         )
     except Review.DoesNotExist:
         return Response(
-            {"error": "Avaliação não encontrada."}, status=status.HTTP_404_NOT_FOUND
+            {"error": "Avaliação não encontrada."}, 
+            status=status.HTTP_404_NOT_FOUND
         )
 
 
@@ -145,14 +197,15 @@ def get_product_reviews(request, product_id):
     """
     try:
         from apps.products.models import Product
-
         product = Product.objects.get(id=product_id)
     except Product.DoesNotExist:
         return Response(
-            {"error": "Produto não encontrado."}, status=status.HTTP_404_NOT_FOUND
+            {"error": "Produto não encontrado."}, 
+            status=status.HTTP_404_NOT_FOUND
         )
 
-    reviews = Review.objects.filter(product=product)
+    # Usar select_related para otimizar queries
+    reviews = Review.objects.filter(product=product).select_related('user')
     serializer = ReviewSerializer(reviews, many=True)
 
     # Obter classificação média
@@ -177,7 +230,8 @@ def get_user_reviews(request):
     Returns:
         Response: Lista de avaliações do usuário
     """
-    reviews = Review.objects.filter(user=request.user)
+    # Usar select_related para otimizar queries
+    reviews = Review.objects.filter(user=request.user).select_related('product')
     serializer = ReviewSerializer(reviews, many=True)
     return Response(serializer.data)
 
@@ -209,8 +263,11 @@ def get_store_product_reviews(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Obter avaliações dos produtos da loja
+    # Obter avaliações dos produtos da loja com otimização
     store_products = request.user.store.products.all()
-    reviews = Review.objects.filter(product__in=store_products)
+    reviews = Review.objects.filter(
+        product__in=store_products
+    ).select_related('product', 'user')
+    
     serializer = ReviewSerializer(reviews, many=True)
     return Response(serializer.data)

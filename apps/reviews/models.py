@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.products.models import Product
 
 
@@ -22,8 +23,11 @@ class Review(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reviews"
     )
-    rating = models.PositiveIntegerField(choices=RATINGS_CHOICES)
-    comment = models.TextField()
+    rating = models.PositiveIntegerField(
+        choices=RATINGS_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -33,6 +37,12 @@ class Review(models.Model):
     class Meta:
         unique_together = ["product", "user"]
         ordering = ["-created_at"]
+        verbose_name = "Avaliação"
+        verbose_name_plural = "Avaliações"
+        indexes = [
+            models.Index(fields=["product", "-created_at"]),
+            models.Index(fields=["user", "-created_at"]),
+        ]
 
 
 class ProductRating(models.Model):
@@ -43,8 +53,16 @@ class ProductRating(models.Model):
     product = models.OneToOneField(
         Product, on_delete=models.CASCADE, related_name="rating"
     )
-    average_rating = models.FloatField(default=0.0)
+    average_rating = models.FloatField(
+        default=0.0,
+        validators=[MinValueValidator(0.0), MaxValueValidator(5.0)]
+    )
     total_reviews = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.product.name} - {self.average_rating} ({self.total_reviews}) avaliações."
+
+    class Meta:
+        verbose_name = "Classificação de Produto"
+        verbose_name_plural = "Classificações de Produtos"
