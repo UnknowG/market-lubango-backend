@@ -19,9 +19,21 @@ class WishlistModelTest(TestCase):
         self.user = User.objects.create_user(
             username="testuser", email="test@example.com", password="testpass123"
         )
+        self.seller = User.objects.create_user(
+            username="seller",
+            email="seller@example.com",
+            password="sellerpass123",
+            user_type="seller",
+            is_approved_seller=True,
+        )
+        self.store = Store.objects.create(
+            name="Test Store", owner=self.seller,
+        )
         self.category = Category.objects.create(name="Test Category")
         self.product = Product.objects.create(
-            name="Test Product", price=10.99, category=self.category
+            name="Test Product", price=10.99, 
+            category=self.category,
+            store=self.store
         )
         self.wishlist_item = Wishlist.objects.create(
             user=self.user, product=self.product
