@@ -217,15 +217,15 @@ TESTING=True  # Modo simulação
 
 Após iniciar o servidor, acesse:
 
-- **Swagger UI**: http://localhost:8000/api/docs/
-- **ReDoc**: http://localhost:8000/api/redoc/
-- **Schema JSON**: http://localhost:8000/api/schema/
+- **Swagger UI**: [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
+- **ReDoc**: [http://localhost:8000/api/redoc/](http://localhost:8000/api/redoc/)
+- **Schema JSON**: [http://localhost:8000/api/schema/](http://localhost:8000/api/schema/)
 
 ### Endpoints Principais
 
 #### Autenticação
 
-```
+```md
 POST   /api/v1/auth/register/          - Registrar usuário
 POST   /api/v1/auth/token/              - Login (obter tokens)
 POST   /api/v1/auth/token/refresh/      - Renovar token
@@ -235,7 +235,7 @@ GET    /api/v1/auth/profile/            - Perfil do usuário
 
 #### Produtos
 
-```
+```md
 GET    /api/v1/products/                - Listar produtos
 GET    /api/v1/products/{slug}/         - Detalhes do produto
 GET    /api/v1/products/search/         - Buscar produtos
@@ -245,7 +245,7 @@ POST   /api/v1/products/seller/create/  - Criar produto (vendedor)
 
 #### Carrinho
 
-```
+```md
 POST   /api/v1/cart/create/             - Criar carrinho
 GET    /api/v1/cart/{code}/             - Obter carrinho
 POST   /api/v1/cart/add/                - Adicionar item
@@ -255,7 +255,7 @@ DELETE /api/v1/cart/item/{id}/          - Remover item
 
 #### Pedidos
 
-```
+```md
 POST   /api/v1/orders/create/           - Criar pedido
 GET    /api/v1/orders/                  - Listar pedidos
 GET    /api/v1/orders/{number}/         - Detalhes do pedido
@@ -264,7 +264,7 @@ POST   /api/v1/orders/{number}/refund/  - Solicitar reembolso
 
 #### Reviews
 
-```
+```md
 POST   /api/v1/reviews/add/             - Adicionar avaliação
 GET    /api/v1/reviews/product/{id}/    - Reviews do produto
 GET    /api/v1/reviews/user/            - Minhas avaliações
@@ -274,7 +274,7 @@ DELETE /api/v1/reviews/{id}/delete/     - Deletar avaliação
 
 #### Wishlist
 
-```
+```md
 GET    /api/v1/wishlist/                - Minha lista de desejos
 POST   /api/v1/wishlist/add/            - Adicionar/remover item
 DELETE /api/v1/wishlist/{id}/           - Remover item
@@ -335,7 +335,7 @@ curl -X GET http://localhost:8000/api/v1/auth/profile/ \
 
 ## 📁 Estrutura do Projeto
 
-```
+```md
 ecommerce/
 │
 ├── apps/
@@ -386,7 +386,10 @@ ecommerce/
 ├── ecommerce/              # Configurações do projeto
 │   ├── settings.py         # Configurações Django
 │   ├── urls.py             # URLs principais
-│   └── wsgi.py             # WSGI para deploy
+│   └── wsgi.py             # WSGI para 
+|
+├── tests/                  # Testes manuais
+|   ├── test_api.py         # Testes manuais dos EndPoints
 │
 ├── media/                  # Uploads de arquivos
 ├── static/                 # Arquivos estáticos
@@ -434,7 +437,7 @@ coverage html  # Gera relatório HTML
 Use o script fornecido:
 
 ```bash
-python test_api.py
+python tests/test_api.py
 ```
 
 Ou use Postman/Thunder Client (veja `GUIA_POSTMAN.md`)
