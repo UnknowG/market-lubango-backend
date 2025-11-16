@@ -31,7 +31,7 @@ def create_order(request):
         # Verificar se o carrinho tem itens
         if not cart.cartitems.exists():
             return Response(
-                {"error": "O carrinho está vazio."}, 
+                {"error": "O carrinho está vazio."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -39,8 +39,7 @@ def create_order(request):
         with transaction.atomic():
             # Calcular total
             total_amount = sum(
-                item.quantity * item.product.price 
-                for item in cart.cartitems.all()
+                item.quantity * item.product.price for item in cart.cartitems.all()
             )
 
             # Criar pedido

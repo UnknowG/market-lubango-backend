@@ -269,7 +269,7 @@ def merge_carts(request):
                         if item.product.stock_quantity < new_quantity:
                             # Ajustar para quantidade máxima disponível
                             new_quantity = item.product.stock_quantity
-                            
+
                         if new_quantity > 0:  # Só adiciona se houver estoque
                             user_item.quantity = new_quantity
                             user_item.save()
