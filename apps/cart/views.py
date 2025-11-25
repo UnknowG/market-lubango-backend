@@ -54,15 +54,14 @@ def create_cart(request):
 def add_to_cart(request):
     """
     Endpoint para adicionar um produto ao carrinho.
-    Usa transação atômica para evitar race conditions.
+    Lida com usuários autenticados e anônimos.
     """
-    cart_code = request.data.get("cart_code")
     product_id = request.data.get("product_id")
     quantity = int(request.data.get("quantity", 1))
 
-    if not cart_code:
+    if not product_id:
         return Response(
-            {"error": "Código do carrinho é obrigatório."},
+            {"error": "ID do produto é obrigatório."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -74,12 +73,32 @@ def add_to_cart(request):
 
     try:
         with transaction.atomic():
-            # Lock do produto para evitar race condition
+            # 1. VERIFICAR AUTENTICAÇÃO PRIMEIRO
+            if request.user.is_authenticated:
+                # USUÁRIO AUTENTICADO: Obter ou criar carrinho vinculado ao usuário
+                try:
+                    cart = request.user.cart
+                except Cart.DoesNotExist:
+                    # Se não existir, cria um novo carrinho para o usuário
+                    import random
+                    import string
+                    cart_code = "".join(random.choices(string.ascii_letters + string.digits, k=11))
+                    cart = Cart.objects.create(user=request.user, cart_code=cart_code)
+            
+            else:
+                # USUÁRIO ANÔNIMO: Exigir o código do carrinho
+                cart_code = request.data.get("cart_code")
+                if not cart_code:
+                    return Response(
+                        {"error": "Código do carrinho é obrigatório para usuários anônimos."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                cart, created = Cart.objects.get_or_create(cart_code=cart_code)
+
+            # 2. LÓGICA COMUM PARA ADICIONAR O ITEM (independente de ser anônimo ou autenticado)
             product = Product.objects.select_for_update().get(
                 id=product_id, in_stock=True
             )
-
-            cart, created = Cart.objects.get_or_create(cart_code=cart_code)
 
             cartitem, item_created = CartItem.objects.get_or_create(
                 product=product, cart=cart, defaults={"quantity": 0}
@@ -100,7 +119,7 @@ def add_to_cart(request):
             cartitem.quantity = new_quantity
             cartitem.save()
 
-        # Recarregar o carrinho fora da transação
+        # 3. RETORNAR O CARRINHO ATUALIZADO
         cart.refresh_from_db()
         serializer = CartSerializer(cart)
         return Response(serializer.data)
