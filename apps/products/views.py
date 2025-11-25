@@ -238,10 +238,22 @@ def store_products(request, slug):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def seller_products_list(request):
-    """Listar produtos do vendedor autenticado"""
+    """
+    Endpoint para listar todos os produtos do vendedor autenticado.
+    """
+    # Verifica se o usuário é um vendedor
     if request.user.user_type != "seller":
-        return Response({"error": "Apenas vendedores"}, status=403)
+        return Response(
+            {"error": "Apenas vendedores podem acessar esta lista."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
-    products = Product.objects.filter(store__user=request.user)
-    serializer = ProductListSerializer(products, many=True)
-    return Response(serializer.data)
+    try:
+        products = Product.objects.filter(store__owner=request.user)
+        serializer = ProductListSerializer(products, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response(
+            {"error": "Ocorreu um erro ao buscar seus produtos."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
