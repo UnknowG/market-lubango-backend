@@ -32,7 +32,7 @@ def products_list(request):
     if store_slug:
         products = Product.objects.filter(store__slug=store_slug, store__is_active=True)
     else:
-        products = Product.objects.filter(featured=True, store__is_active=True)
+        products = Product.objects.filter(store__is_active=True)
 
     serializer = ProductListSerializer(products, many=True)
     return Response(serializer.data)
