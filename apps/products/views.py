@@ -29,10 +29,18 @@ def products_list(request):
     """
     # Filtra por loja se fornecido
     store_slug = request.query_params.get("store", None)
+    category_id = request.query_params.get("category", None)
+
+    # QuerySet base - sempre filtra por lojas ativas
+    products = Product.objects.filter(store__is_active=True)
+
+    # Aplica o filtro de loja, se fornecido
     if store_slug:
-        products = Product.objects.filter(store__slug=store_slug, store__is_active=True)
-    else:
-        products = Product.objects.filter(store__is_active=True)
+        products = products.filter(store__slug=store_slug)
+    
+    # Aplica o filtro de categoria, se fornecido
+    if category_id:
+        products = products.filter(category__id=category_id)
 
     serializer = ProductListSerializer(products, many=True)
     return Response(serializer.data)
