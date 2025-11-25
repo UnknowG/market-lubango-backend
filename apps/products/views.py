@@ -233,3 +233,15 @@ def store_products(request, slug):
         return Response(
             {"error": "Loja não encontrada."}, status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def seller_products_list(request):
+    """Listar produtos do vendedor autenticado"""
+    if request.user.user_type != "seller":
+        return Response({"error": "Apenas vendedores"}, status=403)
+
+    products = Product.objects.filter(store__user=request.user)
+    serializer = ProductListSerializer(products, many=True)
+    return Response(serializer.data)
