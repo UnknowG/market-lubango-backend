@@ -36,6 +36,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         return {
             "id": obj.user.id,
             "username": obj.user.username,
+            "first_name": obj.user.first_name,
+            "last_name": obj.user.last_name,
         }
 
 
