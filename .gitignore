@@ -16,6 +16,3 @@ __pycache__/
 media/
 *.jpg
 *.png
-
-# Arquivos de migração
-migrations/
